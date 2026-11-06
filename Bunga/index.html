@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bunga untuk isma deh</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        height: 100vh;
+        overflow: hidden;
+        background: radial-gradient(circle at center, #1e1038 0%, #05030a 70%);
+        font-family: system-ui, sans-serif;
+        cursor: pointer;
+      }
+
+      canvas {
+        display: block;
+      }
+
+      .pesan {
+        position: fixed;
+        bottom: 9%;
+        width: 100%;
+        text-align: center;
+        color: #fbcfe8;
+        letter-spacing: 0.25em;
+        font-size: clamp(14px, 2.6vw, 22px);
+        opacity: 0;
+        animation: muncul 2s ease 3.2s forwards;
+        pointer-events: none;
+      }
+
+      .petunjuk {
+        position: fixed;
+        top: 16px;
+        width: 100%;
+        text-align: center;
+        color: rgba(255, 255, 255, 0.3);
+        font-size: 12px;
+        pointer-events: none;
+      }
+
+      @keyframes muncul {
+        to {
+          opacity: 0.9;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="kanvas"></canvas>
+    <p class="pesan" id="pesan"></p>
+    <p class="petunjuk">klik biar mekar lagi ismett</p>
+
+    <script>
+      const PESAN = "cobain nih maa";
+
+      const LAPISAN = [
+        {
+          jumlah: 12,
+          panjang: 1.0,
+          lebar: 0.34,
+          warna: ["#9d174d", "#f472b6"],
+          kecepatan: 0.15,
+        },
+        {
+          jumlah: 10,
+          panjang: 0.78,
+          lebar: 0.32,
+          warna: ["#be185d", "#f9a8d4"],
+          kecepatan: -0.25,
+        },
+        {
+          jumlah: 8,
+          panjang: 0.55,
+          lebar: 0.3,
+          warna: ["#db2777", "#fce7f3"],
+          kecepatan: 0.4,
+        },
+      ];
+
+      const canvas = document.getElementById("kanvas");
+      const ctx = canvas.getContext("2d");
+      document.getElementById("pesan").textContent = PESAN;
+
+      function ukurUlang() {
+        // devicePixelRatio membuat gambar tetap tajam di layar Retina / HP
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = innerWidth * dpr;
+        canvas.height = innerHeight * dpr;
+        canvas.style.width = innerWidth + "px";
+        canvas.style.height = innerHeight + "px";
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+      ukurUlang();
+      addEventListener("resize", ukurUlang);
+
+      // Membatasi angka di antara 0 dan 1
+      const batas01 = (x) => Math.min(Math.max(x, 0), 1);
+
+      function easeOutBack(x) {
+        const c1 = 1.70158,
+          c3 = c1 + 1;
+        return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+      }
+
+      function gambarKelopak(panjang, lebar, warnaPangkal, warnaUjung) {
+        const gradasi = ctx.createLinearGradient(0, 0, 0, -panjang);
+        gradasi.addColorStop(0, warnaPangkal);
+        gradasi.addColorStop(1, warnaUjung);
+
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        // sisi kanan kelopak
+        ctx.bezierCurveTo(
+          lebar,
+          -panjang * 0.3,
+          lebar * 0.8,
+          -panjang * 0.85,
+          0,
+          -panjang,
+        );
+        // sisi kiri kelopak (cermin dari sisi kanan)
+        ctx.bezierCurveTo(
+          -lebar * 0.8,
+          -panjang * 0.85,
+          -lebar,
+          -panjang * 0.3,
+          0,
+          0,
+        );
+
+        ctx.fillStyle = gradasi;
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.18)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+
+      function gambarPutik(r, t) {
+        const gradasi = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+        gradasi.addColorStop(0, "#fef3c7");
+        gradasi.addColorStop(0.6, "#f59e0b");
+        gradasi.addColorStop(1, "#92400e");
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.fillStyle = gradasi;
+        ctx.fill();
+
+        ctx.save();
+        ctx.rotate(-t * 0.5);
+        const sudutEmas = Math.PI * (3 - Math.sqrt(5));
+        const jumlahTitik = 70;
+        ctx.fillStyle = "rgba(120, 53, 15, 0.75)";
+        for (let k = 0; k < jumlahTitik; k++) {
+          const jarak = r * 0.85 * Math.sqrt(k / jumlahTitik);
+          const sudut = k * sudutEmas;
+          ctx.beginPath();
+          ctx.arc(
+            Math.cos(sudut) * jarak,
+            Math.sin(sudut) * jarak,
+            r * 0.035,
+            0,
+            Math.PI * 2,
+          );
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+
+      const PARTIKEL = Array.from({ length: 90 }, () => ({
+        x: Math.random(),
+        y: Math.random(),
+        r: Math.random() * 1.6 + 0.3,
+        v: Math.random() * 0.03 + 0.005,
+        fase: Math.random() * Math.PI * 2,
+      }));
+
+      function gambarPartikel(w, h, t) {
+        for (const p of PARTIKEL) {
+          const y = (((p.y - t * p.v) % 1) + 1) % 1;
+          const kedip = 0.25 + 0.75 * (0.5 + 0.5 * Math.sin(t * 2 + p.fase));
+          ctx.beginPath();
+          ctx.arc(p.x * w, y * h, p.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(251, 207, 232, ${kedip * 0.8})`;
+          ctx.fill();
+        }
+      }
+
+      let waktuMulai = performance.now();
+
+      function animasi(sekarang) {
+        const t = (sekarang - waktuMulai) / 1000;
+        const w = innerWidth,
+          h = innerHeight;
+        const ukuran = Math.min(w, h) * 0.36;
+
+        ctx.clearRect(0, 0, w, h);
+        gambarPartikel(w, h, t);
+
+        ctx.save();
+        ctx.translate(w / 2, h / 2);
+        ctx.shadowColor = "rgba(244, 114, 182, 0.55)";
+        ctx.shadowBlur = 18;
+
+        LAPISAN.forEach((lapis, indeksLapis) => {
+          ctx.save();
+          ctx.rotate(t * lapis.kecepatan);
+
+          for (let i = 0; i < lapis.jumlah; i++) {
+            // tiap kelopak muncul
+            const jeda = indeksLapis * 0.7 + i * 0.07;
+            const progres = batas01((t - jeda) / 0.8);
+            if (progres === 0) continue;
+
+            const skala = easeOutBack(progres);
+            // offset
+            const sudut =
+              ((i + indeksLapis * 0.5) / lapis.jumlah) * Math.PI * 2;
+
+            ctx.save();
+            ctx.rotate(sudut);
+            ctx.scale(skala, skala);
+            gambarKelopak(
+              ukuran * lapis.panjang,
+              ukuran * lapis.lebar,
+              lapis.warna[0],
+              lapis.warna[1],
+            );
+            ctx.restore();
+          }
+          ctx.restore();
+        });
+
+        ctx.shadowBlur = 0;
+        const progresPutik = batas01((t - 2.3) / 0.6);
+        if (progresPutik > 0) {
+          const denyut = 1 + 0.04 * Math.sin(t * 3);
+          gambarPutik(ukuran * 0.13 * easeOutBack(progresPutik) * denyut, t);
+        }
+
+        ctx.restore();
+        requestAnimationFrame(animasi);
+      }
+      requestAnimationFrame(animasi);
+
+      addEventListener("click", () => {
+        waktuMulai = performance.now();
+        const pesan = document.getElementById("pesan");
+        pesan.style.animation = "none";
+        void pesan.offsetWidth;
+        pesan.style.animation = "";
+      });
+    </script>
+  </body>
+</html>
